@@ -1,5 +1,19 @@
 <!DOCTYPE html>
 <html lang="ja">
+<style>
+  /* 図の横幅を親要素にフィット */
+  #pop_by_pref { width: 100%; }
+  /* スライダーのステップラベルを非表示（ノブは表示されます） */
+  #pop_by_pref .slider .label { display: none !important; }
+
+  /* ページの左右余白と最大幅（任意） */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 12px; }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 18px; }
+  }
+</style>
+  
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -24,6 +38,63 @@
   #pop_by_pref .slider .label { display: none !important; }
 </style>
 </head>
+
+<script>
+(function () {
+  var DIV_ID = 'pop_by_pref';
+  var gd = document.getElementById(DIV_ID);
+
+  // 画面幅に応じて高さ・凡例位置・スライダー位置・下余白を算出
+  function layoutForWidth(w) {
+    var h = Math.round(Math.min(Math.max(w * 0.56, 360), 720)); // 高さを幅に追従
+    var sliderY = (w < 480) ? -0.22 : (w < 700 ? -0.18 : -0.15);
+    var legendY = (w < 480) ? -0.34 : -0.27;
+    var marginB = (w < 480) ? 190 : (w < 700 ? 160 : 140);
+    return {
+      height: h,
+      'legend.y': legendY,
+      'sliders[0].y': sliderY,
+      'margin.b': marginB
+    };
+  }
+
+  function applyResponsive() {
+    if (!gd) return;
+    var w = (gd.parentElement && gd.parentElement.clientWidth) || gd.clientWidth || window.innerWidth;
+    // レイアウトを更新してから Plotly 内部のリサイズを実行
+    Plotly.relayout(gd, layoutForWidth(w)).then(function () {
+      Plotly.Plots.resize(gd);
+    });
+  }
+
+  function init() {
+    // 初回適用
+    applyResponsive();
+
+    // ページ読み込み時点で自動再生が仕込まれていても即停止（任意）
+    try { Plotly.animate(gd, null, {mode: 'immediate'}); } catch (e) {}
+
+    // 親要素の幅変化を監視（対応ブラウザは ResizeObserver）
+    if (window.ResizeObserver && gd && gd.parentElement) {
+      var ro = new ResizeObserver(applyResponsive);
+      ro.observe(gd.parentElement);
+    } else {
+      window.addEventListener('resize', applyResponsive);
+    }
+  }
+
+  // 生成直後は _fullLayout が未用意のことがあるため、後追いで初期化
+  if (gd && gd._fullLayout) {
+    init();
+  } else {
+    // 描画完了イベントが取れる場合はこちらもフック
+    try { gd.on && gd.on('plotly_afterplot', init); } catch (e) {}
+    // 念のため遅延実行
+    setTimeout(init, 0);
+  }
+})();
+</script>
+
 <body>
 <div class="container">
   <h1>都道府県別の5年毎人口推移(1920-2020)年</h1>
